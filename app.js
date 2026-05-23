@@ -1018,25 +1018,14 @@ function renderDirectionSteps(route, cafe) {
   dom.dirLoading.style.display = 'none';
 
   const rawDist = route.summary?.totalDistance ?? 0;
-  let   rawTime = route.summary?.totalTime     ?? 0;
 
-  // Debug: log what OSRM actually returned
-  console.log('[BrewMap] Route summary:', route.summary);
-  console.log('[BrewMap] rawDist:', rawDist, 'm | rawTime:', rawTime, 's');
-
-  // OSRM sometimes returns 0 or unrealistically small times on the free demo server.
-  // Fall back to a realistic speed-based estimate if the returned time seems wrong.
-  // Thresholds: less than 10 seconds for any route is clearly wrong.
-  let isEstimated = false;
-  if (rawTime < 10 && rawDist > 0) {
-    rawTime = estimateTravelTime(rawDist, state.routeMode);
-    isEstimated = true;
-    console.log('[BrewMap] Using estimated time:', rawTime, 's');
-  }
+  // Always calculate time from distance using real-world speeds
+  // OSRM's free demo server often returns unrealistic times, so we rely on our own estimate.
+  const estTime = estimateTravelTime(rawDist, state.routeMode);
 
   // Summary
   dom.dirDistance.textContent = formatDist(rawDist);
-  dom.dirTime.textContent     = formatDuration(rawTime) + (isEstimated ? ' (est.)' : '');
+  dom.dirTime.textContent     = formatDuration(estTime) + ' (est.)';
   dom.dirSummary.classList.remove('hidden');
 
   // Steps
@@ -1081,18 +1070,17 @@ function directionIcon(type) {
 }
 
 /**
- * Realistic speed-based travel time fallback.
- * Used when OSRM returns 0 or missing time.
- * Average urban speeds per mode.
+ * Travel time estimate based on distance and real-world average speeds.
+ * OSRM's free demo server returns unreliable times, so this is used as the primary source.
  */
 function estimateTravelTime(distanceMeters, mode) {
   const avgSpeedKmh = {
-    driving: 30,   // conservative urban driving
-    cycling: 14,   // average cycling
-    walking:  5    // comfortable walking pace
+    driving: 24,   // ~2.5 min per km — realistic urban driving
+    cycling: 14,   // ~4.3 min per km
+    walking:  5    // ~12 min per km
   };
-  const kmh = avgSpeedKmh[mode] || 30;
-  return Math.round((distanceMeters / 1000 / kmh) * 3600); // seconds
+  const kmh = avgSpeedKmh[mode] || 24;
+  return Math.round((distanceMeters / 1000 / kmh) * 3600);
 }
 
 function formatDuration(seconds) {
