@@ -13,6 +13,7 @@
 const CONFIG = {
   PHOTON_URL:        'https://photon.komoot.io/api',
   OVERPASS_URL:      'https://overpass-api.de/api/interpreter',
+  OVERPASS_FALLBACK: 'https://overpass.kumi.systems/api/interpreter',
   DEFAULT_LAT:       20.5937,
   DEFAULT_LNG:       78.9629,
   DEFAULT_ZOOM:      5,
@@ -332,6 +333,26 @@ function flyToAndSearch(lat, lng) {
 /* ─────────────────────────────────────────
    OVERPASS CAFE SEARCH
 ───────────────────────────────────────── */
+async function fetchOverpass(query, url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: 'data=' + encodeURIComponent(query),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'BrewMap/1.0 (github.com/paaraskokate/cafe-finder)'
+      },
+      signal: controller.signal
+    });
+    if (!res.ok) throw new Error(`Overpass error ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function searchCafes(lat, lng) {
   if (state.isLoading) return;
   state.isLoading = true;
@@ -356,14 +377,17 @@ async function searchCafes(lat, lng) {
   `.trim();
 
   try {
-    const res = await fetch(CONFIG.OVERPASS_URL, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    if (!res.ok) throw new Error(`Overpass error ${res.status}`);
-    const data = await res.json();
+    let data;
+    try {
+      data = await fetchOverpass(query, CONFIG.OVERPASS_URL);
+    } catch (primaryErr) {
+      console.warn('[BrewMap] Primary Overpass failed, trying fallback:', primaryErr);
+      try {
+        data = await fetchOverpass(query, CONFIG.OVERPASS_FALLBACK);
+      } catch (fallbackErr) {
+        throw new Error('Both Overpass endpoints failed: ' + fallbackErr.message);
+      }
+    }
 
     state.cafes = parseOverpassResults(data.elements, lat, lng);
     clearStatus();
