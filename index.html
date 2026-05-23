@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BrewMap — Find Your Perfect Café</title>
+  <meta name="description" content="Discover nearby cafés with BrewMap. Search for the best coffee spots using free, open-source maps." />
+  <link rel="icon" href="logo.png" type="image/png" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet Routing Machine CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside id="sidebar" class="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-header">
+      <div class="brand">
+        <img src="logo.png" alt="BrewMap" class="brand-logo" onerror="this.style.display='none'" />
+        <div>
+          <div class="brand-name">BrewMap</div>
+          <div class="brand-tagline">Find your perfect brew ☕</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Section -->
+    <div class="search-section" id="search-section">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="location-input"
+          class="search-input"
+          placeholder="City, address, or place..."
+          autocomplete="off"
+          aria-label="Search location"
+        />
+        <button id="clear-btn" class="clear-btn hidden" aria-label="Clear" title="Clear">✕</button>
+      </div>
+      <ul id="autocomplete-list" class="autocomplete-list hidden" role="listbox"></ul>
+
+      <div class="filter-row">
+        <div class="filter-group">
+          <label class="filter-label" for="radius-select">Radius</label>
+          <select id="radius-select" class="filter-select">
+            <option value="500">500 m</option>
+            <option value="1000">1 km</option>
+            <option value="2000" selected>2 km</option>
+            <option value="5000">5 km</option>
+            <option value="10000">10 km</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="sort-select">Sort by</label>
+          <select id="sort-select" class="filter-select">
+            <option value="distance">Distance</option>
+            <option value="name">Name</option>
+            <option value="rating">Rating</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="locate-btn" class="btn btn-secondary" title="Use my location">
+          <span>📍</span> My Location
+        </button>
+        <button id="search-btn" class="btn btn-primary">
+          <span>☕</span> Find Cafés
+        </button>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div id="status-bar" class="status-bar hidden">
+      <div class="status-spinner"></div>
+      <span id="status-text">Searching...</span>
+    </div>
+
+    <!-- Results Header -->
+    <div id="results-header" class="results-header hidden">
+      <span id="results-count" class="results-count"></span>
+      <div class="results-actions">
+        <button id="refresh-btn" class="icon-btn" title="Refresh results">↻</button>
+      </div>
+    </div>
+
+    <!-- Cafe List -->
+    <ul id="cafe-list" class="cafe-list" role="list"></ul>
+
+    <!-- ── DIRECTIONS PANEL (replaces list when routing) ── -->
+    <div id="directions-panel" class="directions-panel hidden">
+      <div class="dir-panel-header">
+        <button id="close-directions-btn" class="back-btn">
+          <span>←</span> Back to results
+        </button>
+        <div class="dir-dest-wrap">
+          <span class="dir-to-label">Directions to</span>
+          <span id="dir-dest-name" class="dir-dest-name"></span>
+        </div>
+      </div>
+
+      <!-- Transport Mode -->
+      <div class="dir-mode-row">
+        <button class="dir-mode-btn active" data-mode="driving" title="Driving">🚗 Drive</button>
+        <button class="dir-mode-btn" data-mode="cycling" title="Cycling">🚴 Cycle</button>
+        <button class="dir-mode-btn" data-mode="walking" title="Walking">🚶 Walk</button>
+      </div>
+
+      <!-- Route Summary -->
+      <div id="dir-summary" class="dir-summary hidden">
+        <div class="dir-summary-item">
+          <span class="dir-summary-icon">📏</span>
+          <div>
+            <div class="dir-summary-label">Distance</div>
+            <div id="dir-distance" class="dir-summary-value"></div>
+          </div>
+        </div>
+        <div class="dir-summary-item">
+          <span class="dir-summary-icon">⏱️</span>
+          <div>
+            <div class="dir-summary-label">Est. Time</div>
+            <div id="dir-time" class="dir-summary-value"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="dir-loading" class="dir-loading">
+        <div class="status-spinner"></div>
+        <span>Calculating route...</span>
+      </div>
+
+      <!-- Error -->
+      <div id="dir-error" class="dir-error hidden">
+        <span>⚠️</span> <span id="dir-error-msg"></span>
+      </div>
+
+      <!-- Steps -->
+      <ol id="dir-steps" class="dir-steps"></ol>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">☕</div>
+      <h2 class="empty-title">Find Your Brew</h2>
+      <p class="empty-desc">Enter a city or use your location to discover cafés nearby.</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="error-state hidden">
+      <div class="error-icon">😕</div>
+      <p id="error-msg" class="error-msg">Something went wrong.</p>
+      <button id="retry-btn" class="btn btn-secondary btn-sm">Try Again</button>
+    </div>
+
+  </aside>
+
+  <!-- ===== MAP AREA ===== -->
+  <main class="map-wrapper">
+    <div id="map"></div>
+
+    <!-- Map overlay controls -->
+    <div class="map-controls">
+      <button id="toggle-sidebar-btn" class="map-ctrl-btn" title="Toggle sidebar" aria-label="Toggle sidebar">☰</button>
+      <button id="map-locate-btn" class="map-ctrl-btn" title="Go to my location" aria-label="My location">📍</button>
+    </div>
+
+    <!-- ── DETAIL CARD ── -->
+    <div id="detail-card" class="detail-card hidden">
+      <button id="close-detail-btn" class="close-detail-btn" aria-label="Close">✕</button>
+
+      <!-- Cafe Photo -->
+      <div class="detail-photo-wrap" id="detail-photo-wrap">
+        <div id="detail-photo-skeleton" class="detail-photo-skeleton">
+          <div class="skeleton-shimmer"></div>
+          <div class="skeleton-icon">☕</div>
+        </div>
+        <img id="detail-photo" class="detail-photo" src="" alt="Café photo" />
+        <div class="detail-photo-gradient"></div>
+      </div>
+
+      <div class="detail-inner">
+        <!-- Name + Status -->
+        <div class="detail-top">
+          <div class="detail-head">
+            <h2 id="detail-name" class="detail-name"></h2>
+
+            <!-- Open/Closed live badge -->
+            <div class="detail-status-row">
+              <span id="detail-open-badge" class="open-badge"></span>
+              <span id="detail-hours-inline" class="detail-hours-inline"></span>
+            </div>
+
+            <!-- Star rating with count -->
+            <div id="detail-rating" class="detail-rating"></div>
+
+            <!-- Distance -->
+            <div id="detail-distance" class="detail-distance"></div>
+          </div>
+        </div>
+
+        <!-- Info rows -->
+        <div class="detail-body">
+          <div id="detail-address" class="detail-row hidden">
+            <span class="detail-row-icon">📍</span>
+            <span id="detail-address-text"></span>
+          </div>
+          <div id="detail-phone" class="detail-row hidden">
+            <span class="detail-row-icon">📞</span>
+            <a id="detail-phone-link" href="#"></a>
+          </div>
+          <div id="detail-full-hours" class="detail-row hidden">
+            <span class="detail-row-icon">🕐</span>
+            <span id="detail-hours-text"></span>
+          </div>
+          <div id="detail-website" class="detail-row hidden">
+            <span class="detail-row-icon">🌐</span>
+            <a id="detail-website-link" href="#" target="_blank" rel="noopener noreferrer">Visit website</a>
+          </div>
+          <div id="detail-cuisine" class="detail-row hidden">
+            <span class="detail-row-icon">🍽️</span>
+            <span id="detail-cuisine-text"></span>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="detail-actions">
+          <button id="get-directions-btn" class="btn btn-primary btn-sm">🗺️ Get Directions</button>
+          <button id="copy-link-btn" class="btn btn-secondary btn-sm">🔗 Copy Link</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden" role="alert" aria-live="polite"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Routing Machine -->
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>
