@@ -1,5 +1,7 @@
 # BrewMap ☕ — Find Your Perfect Café
 
+> **Live**: [brewmap-taupe.vercel.app](https://brewmap-taupe.vercel.app)
+
 A dark-themed, single-page web app that discovers nearby cafés using open-source map data. Search by location, use your current location, browse café details, and get turn-by-turn directions — all for free, no paid API keys required.
 
 ## Features
