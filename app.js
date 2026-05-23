@@ -1,6 +1,6 @@
 /* =============================================================
    BrewMap — app.js  v2
-   Leaflet.js + OpenStreetMap + Overpass API + Nominatim
+   Leaflet.js + OpenStreetMap + Overpass API + Photon
    + Cafe Photos  + Live Open/Close  + Star Ratings  + In-App Routing
    100% Free — No API key required
    ============================================================= */
@@ -9,9 +9,9 @@
 
 /* ─────────────────────────────────────────
    CONFIG
-───────────────────────────────────────── */
+   ───────────────────────────────────────── */
 const CONFIG = {
-  NOMINATIM_URL:     'https://nominatim.openstreetmap.org',
+  PHOTON_URL:        'https://photon.komoot.io/api',
   OVERPASS_URL:      'https://overpass-api.de/api/interpreter',
   DEFAULT_LAT:       20.5937,
   DEFAULT_LNG:       78.9629,
@@ -252,26 +252,36 @@ function clearSearch() {
 ───────────────────────────────────────── */
 async function fetchAutocomplete(query) {
   try {
-    const url = `${CONFIG.NOMINATIM_URL}/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const url = `${CONFIG.PHOTON_URL}/?q=${encodeURIComponent(query)}&limit=5&lang=en`;
+    const res = await fetch(url);
     if (!res.ok) return;
-    renderAutocomplete(await res.json());
+    const data = await res.json();
+    renderAutocomplete(data.features || []);
   } catch { /* silent */ }
+}
+
+function buildPhotonName(feature) {
+  const p = feature.properties || {};
+  const parts = [p.name, p.street, p.city, p.state, p.country].filter(Boolean);
+  return parts.join(', ');
 }
 
 function renderAutocomplete(results) {
   dom.autocomplete.innerHTML = '';
   if (!results.length) { closeAutocomplete(); return; }
-  results.forEach(place => {
+  results.forEach(feature => {
+    const p = feature.properties || {};
+    const coords = feature.geometry?.coordinates || [];
+    const name = buildPhotonName(feature);
     const li = document.createElement('li');
     li.className = 'autocomplete-item';
     li.setAttribute('role', 'option');
-    li.innerHTML = `<span class="ac-icon">📍</span><span>${escapeHtml(place.display_name)}</span>`;
+    li.innerHTML = `<span class="ac-icon">📍</span><span>${escapeHtml(name)}</span>`;
     li.addEventListener('click', () => {
-      dom.locationInput.value = place.display_name;
+      dom.locationInput.value = name;
       dom.clearBtn.classList.remove('hidden');
       closeAutocomplete();
-      flyToAndSearch(parseFloat(place.lat), parseFloat(place.lon));
+      flyToAndSearch(coords[1], coords[0]);
     });
     dom.autocomplete.appendChild(li);
   });
@@ -296,16 +306,18 @@ async function handleSearch() {
 
   setStatus('Geocoding location...');
   try {
-    const url = `${CONFIG.NOMINATIM_URL}/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const url = `${CONFIG.PHOTON_URL}/?q=${encodeURIComponent(query)}&limit=1&lang=en`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Geocoding failed');
     const data = await res.json();
-    if (!data.length) {
+    const features = data.features || [];
+    if (!features.length) {
       clearStatus();
       showError('Location not found. Try a different search term.');
       return;
     }
-    flyToAndSearch(parseFloat(data[0].lat), parseFloat(data[0].lon));
+    const coords = features[0].geometry.coordinates;
+    flyToAndSearch(coords[1], coords[0]);
   } catch {
     clearStatus();
     showError('Could not geocode location. Check your internet connection.');

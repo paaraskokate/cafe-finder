@@ -22,7 +22,7 @@ A dark-themed, single-page web app that discovers nearby cafés using open-sourc
 |---|---|
 | [Leaflet.js](https://leafletjs.com/) | Interactive map rendering |
 | [CARTO dark tiles](https://carto.com/basemaps) | Base map tile layer (free) |
-| [OpenStreetMap Nominatim API](https://nominatim.org/) | Geocoding & autocomplete |
+| [Photon API](https://photon.komoot.io/) (komoot) | Geocoding & autocomplete (CORS-friendly) |
 | [Overpass API](https://overpass-api.de/) | Query cafés from OSM data |
 | [Mapillary API](https://www.mapillary.com/developer) | Street-level café photos |
 | [OSRM](http://project-osrm.org/) | Route calculation (driving, cycling, walking) |
@@ -33,7 +33,7 @@ All APIs used are **free and open-source** — no billing setup required.
 
 ## How It Works
 
-1. **User enters a location** (or clicks "My Location") → Nominatim geocodes it to lat/lng.
+1. **User enters a location** (or clicks "My Location") → Photon API (komoot) geocodes it to lat/lng.
 2. **Overpass API** queries OpenStreetMap for nodes/ways tagged `amenity=cafe` or `amenity=coffee_shop` within the chosen radius.
 3. Results are parsed — address, phone, website, opening hours, cuisine, ratings, and amenity tags are extracted from OSM tags.
 4. **Cafés are displayed** as a sidebar list and map markers with distance, rating, and open/close status.
