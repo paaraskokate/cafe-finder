@@ -335,7 +335,7 @@ function flyToAndSearch(lat, lng) {
 ───────────────────────────────────────── */
 async function fetchOverpass(query, url) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 8000);
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -343,7 +343,9 @@ async function fetchOverpass(query, url) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     if (!res.ok) throw new Error(`Overpass ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    if (!data || !data.elements) throw new Error('Invalid Overpass response');
+    return data.elements;
   } finally {
     clearTimeout(timer);
   }
@@ -351,28 +353,34 @@ async function fetchOverpass(query, url) {
 
 async function searchPhotonCafes(lat, lng, radius) {
   const url = `${CONFIG.PHOTON_URL}/?q=cafe&lat=${lat}&lon=${lng}&osm_tag=amenity:cafe&limit=${CONFIG.MAX_RESULTS}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Photon search failed');
-  const data = await res.json();
-  return (data.features || []).map(f => {
-    const p = f.properties || {};
-    const coords = f.geometry?.coordinates || [];
-    const clat = coords[1], clng = coords[0];
-    if (!clat || !clng) return null;
-    const dist = haversine(lat, lng, clat, clng);
-    if (dist > radius) return null;
-    return {
-      id: `photon-${p.osm_type}-${p.osm_id}`,
-      name: p.name || 'Unnamed Caf\u00e9',
-      lat: clat, lng: clng, dist,
-      address: [p.housenumber, p.street, p.city, p.country].filter(Boolean).join(', ') || null,
-      phone: null, website: null,
-      openingHours: null, hoursInfo: { status: 'unknown', label: null, todayHours: null, raw: null },
-      stars: 0, cuisine: null,
-      wheelchair: null, wifi: null, takeaway: null, outdoor: null,
-      imageUrl: null, wikimedia: null, tags: {}
-    };
-  }).filter(Boolean);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error('Photon search failed');
+    const data = await res.json();
+    return (data.features || []).map(f => {
+      const p = f.properties || {};
+      const coords = f.geometry?.coordinates || [];
+      const clat = coords[1], clng = coords[0];
+      if (!clat || !clng) return null;
+      const dist = haversine(lat, lng, clat, clng);
+      if (dist > radius) return null;
+      return {
+        id: `photon-${p.osm_type}-${p.osm_id}`,
+        name: p.name || 'Unnamed Caf\u00e9',
+        lat: clat, lng: clng, dist,
+        address: [p.housenumber, p.street, p.city, p.country].filter(Boolean).join(', ') || null,
+        phone: null, website: null,
+        openingHours: null, hoursInfo: { status: 'unknown', label: null, todayHours: null, raw: null },
+        stars: 0, cuisine: null,
+        wheelchair: null, wifi: null, takeaway: null, outdoor: null,
+        imageUrl: null, wikimedia: null, tags: {}
+      };
+    }).filter(Boolean);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function searchCafes(lat, lng) {
@@ -399,29 +407,24 @@ async function searchCafes(lat, lng) {
     out body center;
   `.trim();
 
-  try {
-    let data;
-    let fromPhoton = false;
-    try {
-      data = await fetchOverpass(query, CONFIG.OVERPASS_URL);
-    } catch (primaryErr) {
-      console.warn('[BrewMap] Primary Overpass failed, trying fallback:', primaryErr);
-      try {
-        data = await fetchOverpass(query, CONFIG.OVERPASS_FALLBACK);
-      } catch (fallbackErr) {
-        console.warn('[BrewMap] Both Overpass endpoints failed, falling back to Photon API');
-        try {
-          data = { elements: await searchPhotonCafes(lat, lng, radius) };
-          fromPhoton = true;
-        } catch (photonErr) {
-          throw new Error('All data sources failed');
-        }
-      }
-    }
+  setStatus('Searching nearby caf\u00e9s...');
 
-    state.cafes = fromPhoton
-      ? data.elements
-      : parseOverpassResults(data && data.elements ? data.elements : [], lat, lng);
+  try {
+    const [primaryRes, fallbackRes, photonRes] = await Promise.allSettled([
+      fetchOverpass(query, CONFIG.OVERPASS_URL),
+      fetchOverpass(query, CONFIG.OVERPASS_FALLBACK),
+      searchPhotonCafes(lat, lng, radius)
+    ]);
+
+    if (primaryRes.status === 'fulfilled' && primaryRes.value.length) {
+      state.cafes = parseOverpassResults(primaryRes.value, lat, lng);
+    } else if (fallbackRes.status === 'fulfilled' && fallbackRes.value.length) {
+      state.cafes = parseOverpassResults(fallbackRes.value, lat, lng);
+    } else if (photonRes.status === 'fulfilled' && photonRes.value.length) {
+      state.cafes = photonRes.value;
+    } else {
+      throw new Error('No data sources available');
+    }
     clearStatus();
     state.isLoading = false;
 
