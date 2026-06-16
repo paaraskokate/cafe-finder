@@ -350,7 +350,7 @@ async function fetchOverpass(query, url) {
 }
 
 async function searchPhotonCafes(lat, lng, radius) {
-  const url = `${CONFIG.PHOTON_URL}/?q=*&lat=${lat}&lon=${lng}&osm_tag=amenity:cafe&limit=${CONFIG.MAX_RESULTS}`;
+  const url = `${CONFIG.PHOTON_URL}/?q=cafe&lat=${lat}&lon=${lng}&osm_tag=amenity:cafe&limit=${CONFIG.MAX_RESULTS}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Photon search failed');
   const data = await res.json();
