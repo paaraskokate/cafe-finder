@@ -1,4 +1,9 @@
 {
   "version": 2,
-  "framework": null
+  "framework": null,
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 30
+    }
+  }
 }

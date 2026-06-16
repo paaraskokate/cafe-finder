@@ -12,8 +12,7 @@
    ───────────────────────────────────────── */
 const CONFIG = {
   PHOTON_URL:        'https://photon.komoot.io/api',
-  OVERPASS_URL:      'https://overpass-api.de/api/interpreter',
-  OVERPASS_FALLBACK: 'https://overpass.kumi.systems/api/interpreter',
+  OVERPASS_PROXY:    '/api/overpass',
   DEFAULT_LAT:       20.5937,
   DEFAULT_LNG:       78.9629,
   DEFAULT_ZOOM:      5,
@@ -333,20 +332,14 @@ function flyToAndSearch(lat, lng) {
 /* ─────────────────────────────────────────
    OVERPASS CAFE SEARCH
 ───────────────────────────────────────── */
-async function fetchOverpass(query, url) {
+async function fetchOverpass(query) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 30000);
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'BrewMap/1.0 (github.com/paaraskokate/cafe-finder)'
-      },
+    const res = await fetch(`${CONFIG.OVERPASS_PROXY}?data=${encodeURIComponent(query)}`, {
       signal: controller.signal
     });
-    if (!res.ok) throw new Error(`Overpass error ${res.status}`);
+    if (!res.ok) throw new Error(`Overpass proxy error ${res.status}`);
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -377,19 +370,9 @@ async function searchCafes(lat, lng) {
   `.trim();
 
   try {
-    let data;
-    try {
-      data = await fetchOverpass(query, CONFIG.OVERPASS_URL);
-    } catch (primaryErr) {
-      console.warn('[BrewMap] Primary Overpass failed, trying fallback:', primaryErr);
-      try {
-        data = await fetchOverpass(query, CONFIG.OVERPASS_FALLBACK);
-      } catch (fallbackErr) {
-        throw new Error('Both Overpass endpoints failed: ' + fallbackErr.message);
-      }
-    }
+    const data = await fetchOverpass(query);
 
-    state.cafes = parseOverpassResults(data.elements, lat, lng);
+    state.cafes = parseOverpassResults(data && data.elements ? data.elements : [], lat, lng);
     clearStatus();
     state.isLoading = false;
 
