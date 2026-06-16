@@ -359,12 +359,13 @@ async function searchCafes(lat, lng) {
   closeDetailCard();
   closeDirections();
 
+  const bbox = bboxFromCenter(lat, lng, radius);
   const query = `
     [out:json][timeout:25];
     (
-      node["amenity"="cafe"](around:${radius},${lat},${lng});
-      way["amenity"="cafe"](around:${radius},${lat},${lng});
-      node["amenity"="coffee_shop"](around:${radius},${lat},${lng});
+      node["amenity"="cafe"](${bbox});
+      way["amenity"="cafe"](${bbox});
+      node["amenity"="coffee_shop"](${bbox});
     );
     out body center;
   `.trim();
@@ -1209,6 +1210,12 @@ function haversine(lat1, lng1, lat2, lng2) {
   const Δλ = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function bboxFromCenter(lat, lng, radiusMeters) {
+  const latDeg = radiusMeters / 111111;
+  const lngDeg = radiusMeters / (111111 * Math.cos(lat * Math.PI / 180));
+  return `${lat - latDeg},${lng - lngDeg},${lat + latDeg},${lng + lngDeg}`;
 }
 
 function formatDist(m) {
