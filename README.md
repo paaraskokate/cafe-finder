@@ -113,12 +113,6 @@ All configurable constants are in the `CONFIG` object at the top of `app.js`:
 | `AUTOCOMPLETE_DELAY` | `350` | Debounce delay (ms) for autocomplete |
 | `OSRM` | Driving/cycling/walking URLs | Routing service endpoints |
 
-## API Key Security
-
-The Mapillary access token in `app.js` has been replaced with a placeholder. **Never commit real API keys** to public repositories. If you fork this project, make sure to:
-
-- Use environment variables or a separate config file (not committed) for any keys
-- Or replace the placeholder with your own token only for local development
 
 ## License
 
