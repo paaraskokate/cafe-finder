@@ -99,9 +99,6 @@ Then open `http://localhost:8080` in your browser.
 5. Click a café to see its detail card with photo, hours, rating, and more.
 6. Click **Get Directions** for turn-by-turn navigation.
 
-## Screenshots
-
-*(Add screenshots here after deploying)*
 
 ## Configuration
 
